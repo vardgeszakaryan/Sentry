@@ -1,0 +1,38 @@
+# Default Configuration for Sentry AI
+
+project:
+  name: "sentry_yolo_model"
+  runs_dir: "runs/"
+
+dataset:
+  # Ingestion targets
+  github_dir: "data/raw/github_dataset/"
+  custom_dir: "data/raw/custom_dataset/"
+  merged_dir: "data/processed/yolo_merged/"
+  
+  # Merge behaviors
+  merge_mode: "preserve" # Options: ["preserve", "rebuild"]
+  # If rebuild, these ratios are used
+  rebuild_ratios:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+  
+  # Optional Class Remapping. If provided, class IDs are updated during merge.
+  # Format: original_id: new_id
+  # class_remap:
+  #   0: 1
+  #   1: 0
+  
+training:
+  model_yaml: "yolov8n.yaml"       # Base model configuration or weights (e.g., yolov8n.pt)
+  epochs: 100
+  batch_size: 16
+  imgsz: 640
+  device: ""                       # e.g., '0' for GPU, 'cpu' for CPU. Leave empty for ultralytics default
+  workers: 8
+
+inference:
+  weights: "runs/detect/train/weights/best.pt"
+  conf_threshold: 0.25
+  iou_threshold: 0.45
