@@ -34,12 +34,11 @@ def audit_yolo_dataset(dataset_dir: str | Path) -> dict:
         
     image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
     
-    for split in ['train', 'val', 'test']:
-        split_img_dir = images_dir / split
-        split_lbl_dir = labels_dir / split
-        
-        if not split_img_dir.exists():
+    for split_img_dir in images_dir.iterdir():
+        if not split_img_dir.is_dir():
             continue
+        split = split_img_dir.name
+        split_lbl_dir = labels_dir / split
             
         images = [f for f in split_img_dir.iterdir() if f.suffix.lower() in image_extensions]
         stats['total_images'] += len(images)

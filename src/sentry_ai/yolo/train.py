@@ -23,7 +23,7 @@ def train_yolo(config: dict):
     """
     Trains YOLO model using configuration.
     """
-    train_cfg = config.get('training', {})
+    train_cfg = config.get('training', {}).copy()
     ds_cfg = config.get('dataset', {})
     proj_cfg = config.get('project', {})
     
@@ -31,12 +31,12 @@ def train_yolo(config: dict):
     if not merged_dir.exists():
         raise FileNotFoundError(f"Merged dataset directory not found at {merged_dir}. Please run the merge step first.")
         
-    model_yaml = train_cfg.get('model_yaml', 'yolov8n.yaml')
-    epochs = train_cfg.get('epochs', 100)
-    batch = train_cfg.get('batch_size', 16)
-    imgsz = train_cfg.get('imgsz', 640)
-    device = train_cfg.get('device', '')
-    workers = train_cfg.get('workers', 8)
+    model_yaml = train_cfg.pop('model_yaml', 'yolov8n.yaml')
+    epochs = train_cfg.pop('epochs', 100)
+    batch = train_cfg.pop('batch_size', 16)
+    imgsz = train_cfg.pop('imgsz', 640)
+    device = train_cfg.pop('device', '')
+    workers = train_cfg.pop('workers', 8)
     
     runs_dir = proj_cfg.get('runs_dir', 'runs/')
     proj_name = proj_cfg.get('name', 'sentry_yolo_model')
@@ -60,6 +60,11 @@ def train_yolo(config: dict):
     }
     if device:
         kwargs['device'] = device
+        
+    # Forward all advanced kwargs from yaml directly to YOLO
+    for key, val in train_cfg.items():
+        if key not in kwargs:
+            kwargs[key] = val
         
     model.train(**kwargs)
     print("Training completed.")

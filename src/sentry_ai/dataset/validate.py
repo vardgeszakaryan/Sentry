@@ -32,12 +32,13 @@ def validate_yolo_dataset(dataset_dir: str | Path, max_class_id: int = 1000) -> 
     image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
     
     # Traverse splits
-    for split in ['train', 'val', 'test']:
+    splits = [d.name for d in images_dir.iterdir() if d.is_dir()]
+    if not splits:
+        errors.append("No split directories found in 'images/'.")
+        
+    for split in splits:
         split_img_dir = images_dir / split
         split_lbl_dir = labels_dir / split
-        
-        if not split_img_dir.exists():
-            continue # Split might be optional
             
         if not split_lbl_dir.exists():
             errors.append(f"Missing '{split}' label directory but images directory exists.")

@@ -36,12 +36,11 @@ def collect_items(dataset_dir: Path, prefix: str):
     images_dir = dataset_dir / 'images'
     labels_dir = dataset_dir / 'labels'
     
-    for split in ['train', 'val', 'test']:
-        split_img_dir = images_dir / split
-        split_lbl_dir = labels_dir / split
-        
-        if not split_img_dir.exists():
+    for split_img_dir in images_dir.iterdir():
+        if not split_img_dir.is_dir():
             continue
+        split = split_img_dir.name
+        split_lbl_dir = labels_dir / split
             
         for img_path in split_img_dir.iterdir():
             if img_path.suffix.lower() in img_exts:
