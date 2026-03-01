@@ -110,24 +110,33 @@ class DatasetAnalyzer:
             plt.savefig(output_dir / "box_sizes_relative.png")
             plt.close()
 
-        # 4. Box Sizes Categorization (Small, Medium, Large based on COCO metrics)
-        # COCO: small < 32^2, 32^2 <= medium <= 96^2, large > 96^2
+        # 4. Box Sizes Categorization — dataset-relative using P33/P67 thresholds.
+        # Thresholds are derived from the dataset's own box area distribution,
+        # so "small/medium/large" always reflect THIS dataset's scale, not COCO's.
         small, medium, large = 0, 0, 0
+        p33_threshold, p67_threshold = 0.0, 0.0
         if box_areas_absolute:
             areas = np.array(box_areas_absolute)
-            small = np.sum(areas < 32**2)
-            medium = np.sum((areas >= 32**2) & (areas <= 96**2))
-            large = np.sum(areas > 96**2)
-            
-            categories = ['Small (<32² px)', 'Medium (32²-96² px)', 'Large (>96² px)']
-            counts = [small, medium, large]
-            
+            p33_threshold = float(np.percentile(areas, 33))
+            p67_threshold = float(np.percentile(areas, 67))
+
+            small  = int(np.sum(areas < p33_threshold))
+            medium = int(np.sum((areas >= p33_threshold) & (areas < p67_threshold)))
+            large  = int(np.sum(areas >= p67_threshold))
+
+            categories = [
+                f'Small\n(<{p33_threshold:.0f} px²)',
+                f'Medium\n({p33_threshold:.0f}–{p67_threshold:.0f} px²)',
+                f'Large\n(≥{p67_threshold:.0f} px²)',
+            ]
+            cat_counts = [small, medium, large]
+
             plt.figure(figsize=(8, 6))
-            sns.barplot(x=categories, y=counts, palette="viridis")
-            plt.title("Bounding Box Sizes Categorization (COCO Metrics)")
+            sns.barplot(x=categories, y=cat_counts, palette="viridis")
+            plt.title("Bounding Box Sizes (Dataset-Relative, P33/P67 thresholds)")
             plt.ylabel("Count")
-            for i, v in enumerate(counts):
-                plt.text(i, v + max(counts)*0.01, str(v), ha='center')
+            for i, v in enumerate(cat_counts):
+                plt.text(i, v + max(cat_counts) * 0.01, str(v), ha='center')
             plt.savefig(output_dir / "box_size_categories.png")
             plt.close()
 
@@ -148,10 +157,15 @@ class DatasetAnalyzer:
             "total_images": len(image_sizes),
             "total_boxes": len(box_centers),
             "class_counts": class_counts,
+            "box_size_thresholds": {
+                "method": "percentile_33_67",
+                "small_upper_px2": round(p33_threshold, 2),
+                "medium_upper_px2": round(p67_threshold, 2),
+            },
             "box_size_stats": {
-                "small_coco": int(small),
-                "medium_coco": int(medium),
-                "large_coco": int(large),
+                "small": small,
+                "medium": medium,
+                "large": large,
             }
         }
         with open(output_dir / "analysis_summary.json", 'w') as f:
