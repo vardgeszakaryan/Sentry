@@ -36,16 +36,23 @@ def collect_items(dataset_dir: Path, prefix: str):
     images_dir = dataset_dir / 'images'
     labels_dir = dataset_dir / 'labels'
     
-    for split_img_dir in images_dir.iterdir():
-        if not split_img_dir.is_dir():
-            continue
-        split = split_img_dir.name
-        split_lbl_dir = labels_dir / split
-            
-        for img_path in split_img_dir.iterdir():
-            if img_path.suffix.lower() in img_exts:
-                lbl_path = split_lbl_dir / (img_path.stem + '.txt')
-                items.append((img_path, lbl_path, split, prefix))
+    if not images_dir.exists() or not labels_dir.exists():
+        return items
+        
+    for item in images_dir.iterdir():
+        if item.is_dir():
+            split = item.name
+            split_lbl_dir = labels_dir / split
+            if not split_lbl_dir.exists(): continue
+            for img_path in item.iterdir():
+                if img_path.suffix.lower() in img_exts:
+                    lbl_path = split_lbl_dir / (img_path.stem + '.txt')
+                    if lbl_path.exists():
+                        items.append((img_path, lbl_path, split, prefix))
+        elif item.is_file() and item.suffix.lower() in img_exts:
+            lbl_path = labels_dir / (item.stem + '.txt')
+            if lbl_path.exists():
+                items.append((item, lbl_path, 'train', prefix))
                 
     return items
 
