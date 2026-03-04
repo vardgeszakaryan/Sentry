@@ -44,6 +44,46 @@ This is the `main` branch — it holds the **pipeline library and scripts**. No 
 
 ---
 
+## Running Live Detection
+
+The latest trained weights live in `releases/v1.0.0/`. Both scripts run at **1280×1280** with ByteTrack tracking, EMA smoothing, and a cinematic FBI-surveillance visual treatment (teal-orange colour grade, vignette, scan lines, film grain, glowing markers, live HUD).
+
+### Weapon detection only
+
+```bash
+python scripts/detect_weapons_live.py
+```
+
+| Argument    | Default                   | Description                      |
+| ----------- | ------------------------- | -------------------------------- |
+| `--weights` | `releases/v1.0.0/best.pt` | Path to model weights            |
+| `--camera`  | `0`                       | Camera index                     |
+| `--conf`    | `0.35`                    | Confidence threshold             |
+| `--iou`     | `0.45`                    | NMS IoU threshold                |
+| `--ema`     | `0.4`                     | EMA smoothing (0 = max, 1 = off) |
+
+### Combined: pose skeleton + weapon detection
+
+Runs YOLOv26 pose estimation (blue COCO-17 skeleton — face, torso, arms, legs) alongside the Sentry weapon model (red boxes), each with its own ByteTrack tracker and EMA smoothing.
+
+```bash
+python scripts/detect_combined_live.py
+```
+
+| Argument           | Default                           | Description                         |
+| ------------------ | --------------------------------- | ----------------------------------- |
+| `--weapon-weights` | `releases/v1.0.0/best.pt`         | Sentry weapon model weights         |
+| `--pose-weights`   | `releases/v1.0.0/yolo26n-pose.pt` | YOLOv26 pose model weights          |
+| `--camera`         | `0`                               | Camera index                        |
+| `--conf-weapon`    | `0.35`                            | Confidence threshold — weapon model |
+| `--conf-pose`      | `0.40`                            | Confidence threshold — pose model   |
+| `--iou`            | `0.45`                            | NMS IoU threshold (shared)          |
+| `--ema`            | `0.4`                             | EMA smoothing (0 = max, 1 = off)    |
+
+Press **Q** in the window to quit. See [`releases/RELEASES.md`](releases/RELEASES.md) for the full model version history.
+
+---
+
 ## Design Philosophy
 
 The objective is not just to train a detector. The objective is to build a **robust, production-grade CCTV threat detection model** with the following properties:
@@ -185,7 +225,13 @@ Sentry/
 ├── notebooks/
 │   ├── full_dataset_gathering.ipynb   # Data collection and preparation (Colab)
 │   └── merged_dataset_training.ipynb  # Final training run on remote server
+├── releases/
+│   ├── v1.0.0/
+│   │   └── best.pt          # Latest model weights
+│   └── RELEASES.md          # Version history
 ├── scripts/                 # Thin CLI wrappers around the library
+│   ├── detect_weapons_live.py
+│   ├── detect_combined_live.py
 │   ├── ingest_github.py
 │   ├── ingest_local.py
 │   ├── validate.py
