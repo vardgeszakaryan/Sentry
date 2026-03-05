@@ -39,6 +39,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 # ── Resolution ────────────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ def capture_loop(cap: cv2.VideoCapture, buf: LatestFrame) -> None:
 
 
 def weapon_worker(buf: LatestFrame, out_q: queue.Queue,
-                  model: YOLO, ema: float) -> None:
+                  model: YOLO, ema: float, device: str) -> None:
     smoother  = EMASmoother(alpha=ema)
     last_good = None
     missed    = 0
@@ -161,6 +162,7 @@ def weapon_worker(buf: LatestFrame, out_q: queue.Queue,
         results = model.track(
             source=sq, conf=EXIT_CONF, iou=TRACK_IOU,
             persist=True, tracker="bytetrack.yaml", verbose=False,
+            device=device
         )
         r0 = results[0]
         dets = []
@@ -197,7 +199,7 @@ def weapon_worker(buf: LatestFrame, out_q: queue.Queue,
 
 
 def pose_worker(buf: LatestFrame, out_q: queue.Queue,
-                model: YOLO, ema: float) -> None:
+                model: YOLO, ema: float, device: str) -> None:
     smoother = EMASmoother(alpha=ema)
     tid_counter = 0   # simple per-person index (pose model may not have persistent track IDs)
 
@@ -209,6 +211,7 @@ def pose_worker(buf: LatestFrame, out_q: queue.Queue,
         sq = cv2.resize(frame, (DISPLAY_SIZE, DISPLAY_SIZE))
         results = model.predict(
             source=sq, conf=0.30, iou=TRACK_IOU, verbose=False,
+            device=device
         )
         r0 = results[0]
         kps_out = []
@@ -335,7 +338,11 @@ def load_pose_model(primary: str) -> YOLO:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def run(weapon_weights: str, pose_weights: str,
-        camera: int, ema: float) -> None:
+        camera: int, ema: float, device: str) -> None:
+
+    if not device:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Using device: {device}")
 
     wp = Path(weapon_weights)
     if not wp.exists():
@@ -357,8 +364,8 @@ def run(weapon_weights: str, pose_weights: str,
     pose_q   = queue.Queue(maxsize=1)
 
     threading.Thread(target=capture_loop,  args=(cap, buf),                    daemon=True).start()
-    threading.Thread(target=weapon_worker, args=(buf, weapon_q, weapon_model, ema), daemon=True).start()
-    threading.Thread(target=pose_worker,   args=(buf, pose_q,   pose_model,   ema), daemon=True).start()
+    threading.Thread(target=weapon_worker, args=(buf, weapon_q, weapon_model, ema, device), daemon=True).start()
+    threading.Thread(target=pose_worker,   args=(buf, pose_q,   pose_model,   ema, device), daemon=True).start()
 
     latest_w   = WeaponResult()
     latest_p   = PoseResult()
@@ -414,8 +421,9 @@ def parse_args():
     p.add_argument("--pose-weights",   default="releases/v1.0.0/yolo26n-pose.pt")
     p.add_argument("--camera",         type=int,   default=0)
     p.add_argument("--ema",            type=float, default=0.4)
+    p.add_argument("--device",         type=str,   default="", help="Device to run on, e.g. 'cuda:0' or 'cpu'")
     return p.parse_args()
 
 if __name__ == "__main__":
     a = parse_args()
-    run(a.weapon_weights, a.pose_weights, a.camera, a.ema)
+    run(a.weapon_weights, a.pose_weights, a.camera, a.ema, a.device)

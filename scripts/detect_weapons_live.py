@@ -38,6 +38,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 # ── Resolution ────────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ def capture_loop(cap: cv2.VideoCapture, buf: LatestFrame) -> None:
 
 # ── Weapon inference thread ───────────────────────────────────────────────────
 def weapon_worker(buf: LatestFrame, out_q: queue.Queue,
-                  model: YOLO, ema: float) -> None:
+                  model: YOLO, ema: float, device: str) -> None:
     smoother   = EMASmoother(alpha=ema)
     last_good  = None    # last accepted WeaponResult
     missed     = 0
@@ -157,6 +158,7 @@ def weapon_worker(buf: LatestFrame, out_q: queue.Queue,
             persist=True,
             tracker="bytetrack.yaml",
             verbose=False,
+            device=device
         )
         r0 = results[0]
 
@@ -290,7 +292,11 @@ def draw_hud(frame, fps, det_count, held, t) -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-def run(weights: str, camera: int, ema: float) -> None:
+def run(weights: str, camera: int, ema: float, device: str) -> None:
+    if not device:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Using device: {device}")
+
     p = Path(weights)
     if not p.exists():
         print(f"[ERROR] Weights not found: {p}"); sys.exit(1)
@@ -309,7 +315,7 @@ def run(weights: str, camera: int, ema: float) -> None:
     weapon_q = queue.Queue(maxsize=1)
 
     threading.Thread(target=capture_loop,  args=(cap, buf),               daemon=True).start()
-    threading.Thread(target=weapon_worker, args=(buf, weapon_q, model, ema), daemon=True).start()
+    threading.Thread(target=weapon_worker, args=(buf, weapon_q, model, ema, device), daemon=True).start()
 
     latest_res = WeaponResult()
     prev_time  = time.time()
@@ -359,8 +365,9 @@ def parse_args():
     p.add_argument("--weights", default="releases/v1.0.0/best.pt")
     p.add_argument("--camera",  type=int,   default=0)
     p.add_argument("--ema",     type=float, default=0.4)
+    p.add_argument("--device",  type=str,   default="", help="Device to run on, e.g. 'cuda:0' or 'cpu'")
     return p.parse_args()
 
 if __name__ == "__main__":
     a = parse_args()
-    run(a.weights, a.camera, a.ema)
+    run(a.weights, a.camera, a.ema, a.device)
